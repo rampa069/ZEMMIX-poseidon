@@ -1,0 +1,3 @@
+set_global_assignment -name QIP_FILE [file join $::quartus(qip_path) mist-modules/mist.qip]
+set_global_assignment -name QIP_FILE [file join $::quartus(qip_path) T80/T80.qip]
+set_global_assignment -name SYSTEMVERILOG_FILE [file join $::quartus(qip_path) zemmix.sv]
