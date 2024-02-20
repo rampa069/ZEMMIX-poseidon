@@ -41,6 +41,8 @@
 library ieee;
     use ieee.std_logic_1164.all;
     use ieee.std_logic_unsigned.all;
+	 use ieee.std_logic_arith.ALL;
+
     use work.vdp_package.all;
 
 entity emsx_top is
@@ -171,14 +173,15 @@ entity emsx_top is
         vga_scanlines   : inout std_logic_vector(  1 downto 0 );
 		  opl3_l         : out std_logic_vector(15 downto 0 );
 		  opl3_r         : out std_logic_vector(15 downto 0 );
-		  opll_o          : out std_logic_vector(13 downto 0 );
+		  opll_o         : out std_logic_vector(15 downto 0 );
 		  scc1_l         : out std_logic_vector(14 downto 0 );
 		  scc1_r         : out std_logic_vector(14 downto 0 );
  		  scc2_l         : out std_logic_vector(14 downto 0 );
 		  scc2_r         : out std_logic_vector(14 downto 0 );
-		  psg_o           : out std_logic_vector(8 downto 0 );
-        TrPcm_o         : out std_logic_vector(7 downto 0 );
-        btn_scan        : in    std_logic
+		  psg_o          : out std_logic_vector( 8 downto 0 );
+        TrPcm_o        : out std_logic_vector( 7 downto 0 );
+		  Vol_o          : out std_logic_vector( 2 downto 0 );
+        btn_scan       : in    std_logic
     );
 end emsx_top;
 
@@ -532,7 +535,7 @@ architecture RTL of emsx_top is
             wrt         : in    std_logic;
             adr         : in    std_logic_vector( 15 downto 0 );
             dbo         : in    std_logic_vector(  7 downto 0 );
-            wav         : out   std_logic_vector(  13 downto 0 )
+            wav         : out   std_logic_vector( 15 downto 0 )
             );
     end component;
 
@@ -984,7 +987,7 @@ architecture RTL of emsx_top is
     signal  OpllReq         : std_logic;
     signal  OpllAck         : std_logic;
     signal  OpllAmp         : std_logic_vector(  9 downto 0 );
-	 signal  Opllwav         : std_logic_vector(  13 downto 0 );
+	 signal  Opllwav         : std_logic_vector (  15 downto 0 );
     signal  OpllEnaWait     : std_logic;
 
     -- Sound signals
@@ -2764,7 +2767,6 @@ begin
 
     U32 : eseopll
         port map(clk21m, reset, clkena, OpllEnaWait, OpllReq, OpllAck, wrt, adr, dbo, OpllWav);
-    OpllAmp <= OpllWav(13 downto 4);
     -- OPLL wait enabler
     OpllEnaWait <= ff_clksel xnor ff_clksel5m_n;
 
@@ -2772,6 +2774,7 @@ begin
 
     opll_o <= OpllWav;
 	 psg_o <=  (('1'& PsgAmp ) + (KeyClick & "00000")) + Psg2Amp;
+	 vol_o <= MstrVol;
 	 
     U34 : system_timer
         port map(

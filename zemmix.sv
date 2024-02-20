@@ -545,6 +545,7 @@ emsx_top emsx
 		  .scc2_r      (scc2_r),
 		  .TrPcm_o     (TrPcm_o),
 		  .psg_o       (psg_o),
+		  .vol_o       (vol_o),
 
         //.iRTC       (rtc),
         //.oMidi      (midi_tx),
@@ -556,10 +557,10 @@ emsx_top emsx
 ////////////////////   AUDIO   ///////////////////
 
 
-reg signed [15:0] sum_audioL;
-reg signed[15:0] sum_audioR;
-reg signed [13:0] opll_o;
-reg unsigned[15:0] opl3_l;
+reg signed  [15:0] sum_audioL;
+reg signed  [15:0] sum_audioR;
+reg signed [15:0] opll_o;
+reg unsigned [15:0] opl3_l;
 reg unsigned [15:0] opl3_r;
 reg signed [14:0] scc1_r;
 reg signed [14:0] scc1_l;
@@ -568,12 +569,13 @@ reg signed[14:0] scc2_l;
 reg signed [7:0] TrPcm_o;
 reg unsigned [8:0] psg_o;
 
-reg unsigned [15:0] scc_ul ;
-reg unsigned [15:0] scc_ur ;
+wire signed [15:0] tape_sound;
+reg unsigned [15:0] scc_ul;
+reg unsigned [15:0] scc_ur;
 reg unsigned[15:0] opl_ul ;
 reg unsigned[15:0] opl_ur ;
 
-reg unsigned [13:0] opll_u ;
+reg unsigned [15:0] opll_u ;
 reg unsigned [15:0] opl3_ul;
 reg unsigned [15:0] opl3_ur;
 
@@ -585,26 +587,40 @@ assign scc_ul = scc1_l+scc2_l;
 assign scc_ur = scc1_r+scc2_r;
 
 
-assign opl_ul={opll_u,2'b0} +{opl3_ul};
-assign opl_ur={opll_u,2'b0} +{opl3_ur};
+assign opl_ul={opll_u} + {opl3_ul};
+assign opl_ur={opll_u} + {opl3_ur};
+assign tape_sound = status[9]? {8'b0,AUDIO_IN,7'b0} : 16'bZ ;
 
-assign sum_audioR = opl_ur + scc_ur + {3'b0,psg_o,4'b0} + {TrPcm_o,TrPcm_o};
-assign sum_audioL = opl_ul + scc_ul + {3'b0,psg_o,4'b0} + {TrPcm_o,TrPcm_o};
+assign sum_audioR = opl_ur + scc_ur + {1'b0,psg_o,6'b0} + {TrPcm_o,TrPcm_o} + tape_sound;
+assign sum_audioL = opl_ul + scc_ul + {1'b0,psg_o,6'b0} + {TrPcm_o,TrPcm_o} + tape_sound;
 
+wire [2:0] vol_o;
+
+StereoVolumenControl StereoVolumenControl
+(
+ .volume_ctrl  (vol_o),
+ .audio_left_in(sum_audioL),
+ .audio_right_in(sum_audioR),
+ .audio_left_out (i2saudio_l),
+ .audio_right_out(i2saudio_r)
+);
 
 `ifdef I2S_AUDIO
+
+wire signed [15:0] i2saudio_r,i2saudio_l;
+
 wire [31:0] clk_rate =  32'd21_480_000;
 i2s i2s (
-        .reset(reset),
-        .clk(clk_sys),
-        .clk_rate(clk_rate),
+        .reset      (reset),
+        .clk        (clk_sys),
+        .clk_rate   (clk_rate),
 
-        .sclk(I2S_BCK),
-        .lrclk(I2S_LRCK),
-        .sdata(I2S_DATA),
+        .sclk       (I2S_BCK),
+        .lrclk      (I2S_LRCK),
+        .sdata      (I2S_DATA),
 
-        .left_chan  (sum_audioL),
-        .right_chan (sum_audioR)       
+        .left_chan  (i2saudio_l),
+        .right_chan (i2saudio_r)       
 );
 `endif
 
@@ -614,7 +630,7 @@ dac #(
 audiodac_l(
    .clk_i       (clk_sys ),
    .res_n_i     (1      ),
-   .dac_i       (sum_audioL),
+   .dac_i       (i2saudio_l),
    .dac_o       (AUDIO_L)
   );
 
@@ -623,7 +639,7 @@ dac #(
 audiodac_r(
    .clk_i       (clk_sys ),
    .res_n_i     (1      ),
-   .dac_i       (sum_audioR),
+   .dac_i       (i2saudio_r),
    .dac_o       (AUDIO_R)
   );
 
