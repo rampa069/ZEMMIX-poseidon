@@ -450,9 +450,17 @@ wire        HSync, VSync;
 
 
 wire cpuClk;
-emsx_top emsx
-(
-//        -- Clock, Reset ports
+localparam true = "true";
+localparam false = "false";
+
+emsx_top #(
+    .use_wifi_g(true),   // activar interfaz UNAPI
+    .use_midi_g(true),   // true
+    .use_opl3_g(false),   // false. cambiar a true para activar OPL3
+    .use_dualpsg_g(false) // true
+) emsx (
+
+//      -- Clock, Reset ports
         .clk21m     (clk_sys),
         .memclk     (memclk),
         .pSltRst_n  (~reset),
