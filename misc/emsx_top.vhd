@@ -47,8 +47,8 @@ library ieee;
 
 entity emsx_top is
     generic(
-        use_wifi_g      : boolean   := false;
-        use_midi_g      : boolean   := false;
+        use_wifi_g      : boolean   := true;
+        use_midi_g      : boolean   := true;
         use_opl3_g      : boolean   := true;
         use_dualpsg_g   : boolean   := true
     );
@@ -134,8 +134,8 @@ entity emsx_top is
         pDac_VR         : inout std_logic_vector(  5 downto 0 );                -- RGB_Red / Svideo_C
         pDac_VG         : inout std_logic_vector(  5 downto 0 );                -- RGB_Grn / Svideo_Y
         pDac_VB         : inout std_logic_vector(  5 downto 0 );                -- RGB_Blu / Composite Video
-        pDac_SL         : out   std_logic_vector(  5 downto 0 ) := "ZZZZZZ";    -- Sound-L
-        pDac_SR         : out   std_logic_vector(  5 downto 0 ) := "ZZZZZZ";    -- Sound-R
+        --pDac_SL         : out   std_logic_vector(  5 downto 0 ) := "ZZZZZZ";    -- Sound-L
+        --pDac_SR         : out   std_logic_vector(  5 downto 0 ) := "ZZZZZZ";    -- Sound-R
 
         pVideoHS_n      : out   std_logic;                                      -- Csync(RGB15K), HSync(VGA31K)
         pVideoVS_n      : out   std_logic;                                      -- Audio(RGB15K), VSync(VGA31K)
@@ -161,13 +161,14 @@ entity emsx_top is
 
         -- Poseidon ports
         clk21m_out      : out   std_logic;
-        clk_hdmi        : out   std_logic;
+        --clk_hdmi        : out   std_logic;
         esp_rx_o        : out   std_logic := 'Z';
         esp_tx_i        : in    std_logic := 'Z';
         blank_o         : out   std_logic;
         ear_i           : in    std_logic;
         mic_o           : out   std_logic;
         midi_o          : out   std_logic;
+		  midi_i          : in    std_logic;
         midi_active_o   : out   std_logic;
         vga_status      : out   std_logic;
         vga_scanlines   : inout std_logic_vector(  1 downto 0 );
@@ -2912,7 +2913,7 @@ begin
                 iorq_i      => iSltIorq_n,
                 wrt_i       => xSltWr_n,
                 rd_i        => xSltRd_n,
-                tx_i        => '0',
+                tx_i        => midi_i,
                 rx_o        => midi_o,              -- module output pin
                 adr_i       => adr,
                 db_i        => dbo,

@@ -51,6 +51,13 @@ module StereoVolumenControl(
                 audio_right_atenuado = 0;
             end
         endcase
+		  // Limitador de volumen
+        if (audio_left_atenuado > volumen_maximo) begin
+            audio_left_atenuado = volumen_maximo;
+        end
+        if (audio_right_atenuado > volumen_maximo) begin
+            audio_right_atenuado = volumen_maximo;
+        end
     end
 
     assign audio_left_out = audio_left_atenuado;

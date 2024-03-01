@@ -33,14 +33,8 @@ architecture RTL of eseopll is
            snd   : out std_logic_vector(15 downto 0);
            sample: out STD_LOGIC);
   end component;
-  signal XIN  : std_logic;
-  signal D    : std_logic_vector(7 downto 0);
-  signal A    : std_logic;
   signal CS_n : std_logic;
   signal WE_n : std_logic;
-  signal IC_n : std_logic;
-  signal MO   : std_logic_vector(9 downto 0);
-  signal RO   : std_logic_vector(9 downto 0);
 
   signal counter : integer range 0 to 72*6;
 
@@ -50,8 +44,6 @@ architecture RTL of eseopll is
   signal WE_n_buf : std_logic;
 
 begin
-
-  IC_n <= not reset;
 
   process (clk21m, reset)
 
@@ -87,12 +79,8 @@ begin
 
       if (clkena = '1') then
 
-        A    <= A_buf;
-        D    <= dbo_buf;
         CS_n <= CS_n_buf;
         WE_n <= WE_n_buf;
-        --mix := ('0'&MO) + ('0'&RO) - "01000000000";
-        --wav <= mix(wav'range);
         CS_n_buf <= '1';
 
       end if;

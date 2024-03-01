@@ -113,6 +113,8 @@ module zemmix
 	inout reg     BUS_CLK,
 	inout         BUS_nINT,
 	inout         BUS_nWAIT,
+	input         BUS_RX,
+	output        BUS_TX,
 `endif
    input         UART_RX,
 	output        UART_TX
@@ -186,7 +188,6 @@ localparam CONF_STR = {
 	"P1O7,RAM,2048kB,4096kB;",
 	"P1O8,internal MegaSD,Off,on;",
    "O9,Tape sound,OFF,ON;",
-	"OA,Uart,WiFi,Midi;",
    "T0,Reset;",
 	"V,v1.0.",`BUILD_DATE
 };
@@ -440,15 +441,7 @@ always @(posedge clk_sys) begin
 end
 
 wire        Cmt_Out;
-wire        esp_tx, midi_tx;
-reg         rx, rxD;
-wire uart_sel = status[10];
 
-always @(posedge clk_sys) begin
-	rxD <= UART_RX;
-	rx <= rxD;
-	UART_TX <= uart_sel ? esp_tx : midi_tx;
-end
 
 wire  [5:0] R_O;
 wire  [5:0] G_O;
@@ -547,10 +540,20 @@ emsx_top emsx
 		  .psg_o       (psg_o),
 		  .vol_o       (vol_o),
 
-        //.iRTC       (rtc),
-        //.oMidi      (midi_tx),
-        .pUsbP1     (rx),
-        .pUsbN1     (esp_tx)
+`ifdef SWAP_PORTS
+		  // swapped ports
+		  .esp_rx_o    (UART_TX),
+        .esp_tx_i    (UART_RX),
+		  .midi_o      (BUS_RX),
+		  .midi_i      (BUS_TX),
+`else
+        //proper port location
+		  .esp_rx_o    (BUS_TX),
+        .esp_tx_i    (BUS_RX),
+		  .midi_o      (UART_TX),
+		  .midi_i      (UART_RX),
+`endif
+
 );
 
 
@@ -646,6 +649,8 @@ audiodac_r(
 
 //////////////////   VIDEO   //////////////////
 
+wire isVGA = status[2];
+
 mist_video #(.COLOR_DEPTH(6), .SD_HCNT_WIDTH(11), .OUT_COLOR_DEPTH(VGA_BITS), .BIG_OSD(BIG_OSD)) mist_video (	
 	.clk_sys      (clk_sys    ),
 	.SPI_SCK      (SPI_SCK    ),
@@ -654,8 +659,8 @@ mist_video #(.COLOR_DEPTH(6), .SD_HCNT_WIDTH(11), .OUT_COLOR_DEPTH(VGA_BITS), .B
 	.R            (R_O ),
 	.G            (G_O ),
 	.B            (B_O ),
-	.HSync        (HSync      ),
-	.VSync        (VSync      ),
+	.HSync        (HSync),
+	.VSync        (VSync),
 	.VGA_R        (VGA_R      ),
 	.VGA_G        (VGA_G      ),
 	.VGA_B        (VGA_B      ),
@@ -663,6 +668,7 @@ mist_video #(.COLOR_DEPTH(6), .SD_HCNT_WIDTH(11), .OUT_COLOR_DEPTH(VGA_BITS), .B
 	.VGA_HS       (VGA_HS     ),
 	.ce_divider   (1'b0       ),
 	.scandoubler_disable(1'b1),
+	.no_csync     (status[2]),
 	.scanlines    (2'b00),
 	.ypbpr        (ypbpr      )
 	);
