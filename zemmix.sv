@@ -455,9 +455,9 @@ localparam false = "false";
 
 emsx_top #(
     .use_wifi_g(true),   // activar interfaz UNAPI
-    .use_midi_g(true),   // true
-    .use_opl3_g(false),   // false. cambiar a true para activar OPL3
-    .use_dualpsg_g(false) // true
+    .use_midi_g(true),   // activar interfaz midi
+    .use_opl3_g(true),  // false. cambiar a true para activar OPL3
+    .use_dualpsg_g(false)// activar doble chip PSG
 ) emsx (
 
 //      -- Clock, Reset ports
@@ -552,12 +552,16 @@ emsx_top #(
 		  // swapped ports
 		  .esp_rx_o    (UART_TX),
         .esp_tx_i    (UART_RX),
+   `ifdef USE_EXTBUS			  
 		  .midi_o      (BUS_RX),
 		  .midi_i      (BUS_TX),
+   `endif
 `else
         //proper port location
+   `ifdef USE_EXTBUS			  
 		  .esp_rx_o    (BUS_TX),
         .esp_tx_i    (BUS_RX),
+   `endif
 		  .midi_o      (UART_TX),
 		  .midi_i      (UART_RX),
 `endif
@@ -635,13 +639,15 @@ i2s i2s (
 );
 `endif
 
-
+wire unsigned dacaudio_l=i2saudio_l;
+wire unsigned dacaudio_r=i2saudio_r;
+ 
 dac #(
    .c_bits      (16))
 audiodac_l(
    .clk_i       (clk_sys ),
    .res_n_i     (1      ),
-   .dac_i       (i2saudio_l),
+   .dac_i       (dacaudio_l),
    .dac_o       (AUDIO_L)
   );
 
@@ -650,7 +656,7 @@ dac #(
 audiodac_r(
    .clk_i       (clk_sys ),
    .res_n_i     (1      ),
-   .dac_i       (i2saudio_r),
+   .dac_i       (dacaudio_r),
    .dac_o       (AUDIO_R)
   );
 
