@@ -83,6 +83,17 @@ module zemmix
 `ifdef USE_AUDIO_IN
 	input         AUDIO_IN,
 `endif
+
+`ifdef PIN_REFLECTION
+	output        joy_clk,
+   input         joy_xclk,
+	
+   output        joy_load,
+   input         joy_xload,
+   
+	input         joy_data,
+   output        joy_xdata,	
+`endif
 	
 `ifdef USE_EXTBUS	
 	inout [23:0]  BUS_A = 24'b0,
@@ -210,6 +221,15 @@ pll pll
 );
 
 assign SDRAM_CLK=~memclk;
+
+//////////////////   RP2040 pin reflection   ///////////////////
+
+`ifdef PIN_REFLECTION
+assign joy_clk = joy_xclk;
+assign joy_load = joy_xload;
+assign joy_xdata = joy_data;
+`endif
+
 
 //////////////////   MIST ARM I/O   ///////////////////
 wire  [7:0] joy_0;
@@ -381,7 +401,7 @@ always @(posedge clk_sys) begin
 	if (img_reset_cnt != 0) img_reset_cnt <= img_reset_cnt - 1'd1;
 	if (img_mounted) img_reset_cnt <= 28'h2000000;
 	reset <= resetW;
-	dipsw <= {~status[8], ~status[7], ~status[6:5], ~status[4], ~status[3],status [2] , ~status[1]};
+	dipsw <= {~status[8], ~status[7], ~status[6:5], ~status[4], ~status[3],1'b0 , ~status[1]};
 end
 
 always_comb begin
@@ -525,7 +545,7 @@ emsx_top #(
 `ifdef USE_EXTBUS			  
         .pLed       (BUS_A[23:16]),
 `endif		  
-		  .pLedPwr    (LED),
+		  .pLedPwr    (),
 		  .ear_i      (AUDIO_IN),
 
 //        -- Video, Audio/CMT ports
@@ -682,7 +702,7 @@ mist_video #(.COLOR_DEPTH(6), .SD_HCNT_WIDTH(11), .OUT_COLOR_DEPTH(VGA_BITS), .B
 	.VGA_HS       (VGA_HS     ),
 	.ce_divider   (1'b0       ),
 	.scandoubler_disable(1'b1),
-	.no_csync     (status[2]),
+	.no_csync     (1),
 	.scanlines    (2'b00),
 	.ypbpr        (ypbpr      )
 	);
