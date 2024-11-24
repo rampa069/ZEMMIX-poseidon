@@ -77,6 +77,12 @@ module zemmix
 	output        I2S_LRCK,
 	output        I2S_DATA,
 `endif
+`ifdef I2S_AUDIO_HDMI
+	output        HDMI_MCLK,
+	output        HDMI_BCK,
+	output        HDMI_LRCK,
+	output        HDMI_SDATA,
+`endif
 `ifdef SPDIF_AUDIO
 	output        SPDIF,
 `endif
@@ -183,8 +189,31 @@ assign SDRAM2_nWE = 1;
 
 `include "build_id.v"
 
-`default_nettype none
+// remove this if the 2nd chip is actually used
+`ifdef DUAL_SDRAM
+assign SDRAM2_A = 13'hZZZZ;
+assign SDRAM2_BA = 0;
+assign SDRAM2_DQML = 0;
+assign SDRAM2_DQMH = 0;
+assign SDRAM2_CKE = 0;
+assign SDRAM2_CLK = 0;
+assign SDRAM2_nCS = 1;
+assign SDRAM2_DQ = 16'hZZZZ;
+assign SDRAM2_nCAS = 1;
+assign SDRAM2_nRAS = 1;
+assign SDRAM2_nWE = 1;
+`endif
 
+`ifdef USE_HDMI
+wire        i2c_start;
+wire        i2c_read;
+wire  [6:0] i2c_addr;
+wire  [7:0] i2c_subaddr;
+wire  [7:0] i2c_dout;
+wire  [7:0] i2c_din;
+wire        i2c_ack;
+wire        i2c_end;
+`endif
 
 `include "build_id.v"
 localparam CONF_STR = {
@@ -206,6 +235,7 @@ localparam CONF_STR = {
 ////////////////////   CLOCKS   ///////////////////
 wire clk_sys;
 wire memclk;
+wire clk_hdmi;
 wire locked;
 
 pll pll
@@ -217,11 +247,37 @@ pll pll
 `endif	
 	.c0(clk_sys),
 	.c1(memclk),
+	.c2(clk_hdmi),
 	.locked(locked)
 );
 
-assign SDRAM_CLK=~memclk;
+//assign SDRAM_CLK=~memclk;
+altddio_out
+#(
+	.extend_oe_disable("OFF"),
+	.intended_device_family("Cyclone 10 LP"),
+	.invert_output("OFF"),
+	.lpm_hint("UNUSED"),
+	.lpm_type("altddio_out"),
+	.oe_reg("UNREGISTERED"),
+	.power_up_high("OFF"),
+	.width(1)
+)
 
+
+sdramclk_ddr
+(
+	.datain_h(1'b0),
+	.datain_l(1'b1),
+	.outclock(memclk),
+	.dataout(SDRAM_CLK),
+	.aclr(1'b0),
+	.aset(1'b0),
+	.oe(1'b1),
+	.outclocken(1'b1),
+	.sclr(1'b0),
+	.sset(1'b0)
+);
 //////////////////   RP2040 pin reflection   ///////////////////
 
 `ifdef PIN_REFLECTION
@@ -280,6 +336,17 @@ user_io #(.STRLEN($size(CONF_STR)>>3), .PS2DIV(800), .FEATURES(32'h0 | (BIG_OSD 
 	.SPI_SS_IO(CONF_DATA0),
 	.SPI_MOSI(SPI_DI),
 	.SPI_MISO(SPI_DO),
+
+`ifdef USE_HDMI
+	.i2c_start      (i2c_start      ),
+   .i2c_read       (i2c_read       ),
+   .i2c_addr       (i2c_addr       ),
+	.i2c_subaddr    (i2c_subaddr    ),
+	.i2c_dout       (i2c_dout       ),
+	.i2c_din        (i2c_din        ),
+	.i2c_ack        (i2c_ack        ),
+	.i2c_end        (i2c_end        ),
+`endif
 
 	.img_mounted(img_mounted),
 	.img_size(img_size),
@@ -467,7 +534,7 @@ wire  [5:0] R_O;
 wire  [5:0] G_O;
 wire  [5:0] B_O;
 wire        HSync, VSync;
-
+wire blank;
 
 wire cpuClk;
 localparam true = "true";
@@ -556,6 +623,7 @@ emsx_top #(
         .pDac_VB    (B_O),      // RGB_Blu / CompositeVideo
         .pVideoHS_n (HSync),    // HSync(RGB15K, VGA31K)
         .pVideoVS_n (VSync),    // VSync(RGB15K, VGA31K)
+		  .blank_o    (blank),
 
 		  .opl3_l      (opl3_l),
 		  .opl3_r      (opl3_r),
@@ -580,10 +648,10 @@ emsx_top #(
         //proper port location
    `ifdef USE_EXTBUS			  
 		  .esp_rx_o    (BUS_TX),
-        .esp_tx_i    (BUS_RX),
+        .esp_tx_i    (BUS_RX)
    `endif
 		  .midi_o      (UART_TX),
-		  .midi_i      (UART_RX),
+		  .midi_i      (UART_RX)
 `endif
 
 );
@@ -657,10 +725,29 @@ i2s i2s (
         .left_chan  (i2saudio_l),
         .right_chan (i2saudio_r)       
 );
+
+`ifdef I2S_AUDIO_HDMI
+assign HDMI_MCLK = 0;
+always @(posedge clk_sys) begin
+	HDMI_BCK <= I2S_BCK;
+	HDMI_LRCK <= I2S_LRCK;
+	HDMI_SDATA <= I2S_DATA;
+end
+`endif
 `endif
 
-wire unsigned dacaudio_l=i2saudio_l;
-wire unsigned dacaudio_r=i2saudio_r;
+`ifdef SPDIF_AUDIO
+spdif spdif (
+	.rst_i(1'b0),
+	.clk_i(clk_sys),
+	.clk_rate_i(clk_rate),
+	.spdif_o(SPDIF),
+	.sample_i({i2saudio_l,i2saudio_r})
+);
+`endif
+
+wire unsigned [15:0] dacaudio_l=i2saudio_l;
+wire unsigned [15:0] dacaudio_r=i2saudio_r;
  
 dac #(
    .c_bits      (16))
@@ -685,7 +772,15 @@ audiodac_r(
 
 wire isVGA = status[2];
 
-mist_video #(.COLOR_DEPTH(6), .SD_HCNT_WIDTH(11), .OUT_COLOR_DEPTH(VGA_BITS), .BIG_OSD(BIG_OSD)) mist_video (	
+mist_video #(
+    .COLOR_DEPTH(6),
+	 .SD_HCNT_WIDTH(11),
+	 .OUT_COLOR_DEPTH(VGA_BITS),
+	 .USE_BLANKS(0),
+	 .BIG_OSD(BIG_OSD)
+) 
+mist_video 
+(	
 	.clk_sys      (clk_sys    ),
 	.SPI_SCK      (SPI_SCK    ),
 	.SPI_SS3      (SPI_SS3    ),
@@ -702,10 +797,81 @@ mist_video #(.COLOR_DEPTH(6), .SD_HCNT_WIDTH(11), .OUT_COLOR_DEPTH(VGA_BITS), .B
 	.VGA_HS       (VGA_HS     ),
 	.ce_divider   (1'b0       ),
 	.scandoubler_disable(1'b1),
-	.no_csync     (1),
+	.no_csync     (1'b1),
 	.scanlines    (2'b00),
-	.ypbpr        (ypbpr      )
+	.ypbpr        (1'b0      )
 	);
 
+`ifdef USE_HDMI
+i2c_master #(22_000_000) i2c_master (
+	.CLK         (clk_sys),
+	.I2C_START   (i2c_start),
+	.I2C_READ    (i2c_read),
+	.I2C_ADDR    (i2c_addr),
+	.I2C_SUBADDR (i2c_subaddr),
+	.I2C_WDATA   (i2c_dout),
+	.I2C_RDATA   (i2c_din),
+	.I2C_END     (i2c_end),
+	.I2C_ACK     (i2c_ack),
 
+	//I2C bus
+	.I2C_SCL     (HDMI_SCL),
+	.I2C_SDA     (HDMI_SDA)
+);	
+
+reg HBlank, VBlank;
+
+ always @(*) begin
+	  HBlank = blank && !VSync; // Si está en blank y no es un periodo de vsync, estamos en hblank.
+	  VBlank = blank && !HSync; // Si está en blank y no es un periodo de hsync, estamos en vblank.
+ end
+
+mist_video #(
+	.COLOR_DEPTH(6),
+	.OUT_COLOR_DEPTH(8),
+	.USE_BLANKS(0),
+	.OSD_COLOR(3'b001),
+	.BIG_OSD(BIG_OSD),
+	.VIDEO_CLEANER(0)
+)
+
+hdmi_video (
+	.clk_sys     ( clk_hdmi   ),
+
+	// OSD SPI interface
+	.SPI_SCK     ( SPI_SCK    ),
+	.SPI_SS3     ( SPI_SS3    ),
+	.SPI_DI      ( SPI_DI     ),
+	.scanlines   (status[9:7]),
+	.ce_divider  ( 3'd0       ),
+	.scandoubler_disable (1'b1),
+	.no_csync    ( 1'b1       ),
+	.ypbpr       ( 1'b0       ),
+	.rotate      ( 2'b00      ),
+	.blend       ( 1'b0       ),
+	.R           (R_O),
+	.G           (G_O),
+	.B           (B_O),
+//	.HBlank      ( HBlank      ),
+//	.VBlank      ( VBlank      ),
+	.HSync       ( HSync       ),
+	.VSync       ( VSync       ),
+	.VGA_R       ( HDMI_R      ),
+	.VGA_G       ( HDMI_G      ),
+	.VGA_B       ( HDMI_B      ),
+	.VGA_VS      (             ),
+	.VGA_HS      (             ),
+	.VGA_DE      (             )
+);
+assign HDMI_PCLK = clk_hdmi;
+
+always @(posedge clk_hdmi) begin
+	//HDMI_R <= r;
+	//HDMI_G <= g;
+	//HDMI_B <= b;
+	HDMI_HS <= HSync;
+	HDMI_VS <= VSync;
+	HDMI_DE <= !blank;
+end
+`endif	
 endmodule
