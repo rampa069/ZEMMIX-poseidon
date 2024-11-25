@@ -251,7 +251,6 @@ pll pll
 	.locked(locked)
 );
 
-//assign SDRAM_CLK=~memclk;
 altddio_out
 #(
 	.extend_oe_disable("OFF"),
@@ -459,9 +458,9 @@ wire [7:0] leds;
 reg reset;
 reg  [27:0] img_reset_cnt = 0;
 `ifdef USE_EXTBUS	
-wire resetW = status[0] | buttons[1] | img_reset_cnt != 0| !BUS_nRESET;
+wire resetW = status[0] | buttons[1] | img_reset_cnt != 0 | !locked | !BUS_nRESET;
 `else
-wire resetW = status[0] | buttons[1] | img_reset_cnt != 0;
+wire resetW = status[0] | buttons[1] | img_reset_cnt != 0 | !locked;
 `endif
 
 always @(posedge clk_sys) begin
@@ -819,12 +818,7 @@ i2c_master #(22_000_000) i2c_master (
 	.I2C_SDA     (HDMI_SDA)
 );	
 
-reg HBlank, VBlank;
 
- always @(*) begin
-	  HBlank = blank && !VSync; // Si está en blank y no es un periodo de vsync, estamos en hblank.
-	  VBlank = blank && !HSync; // Si está en blank y no es un periodo de hsync, estamos en vblank.
- end
 
 mist_video #(
 	.COLOR_DEPTH(6),
@@ -836,7 +830,7 @@ mist_video #(
 )
 
 hdmi_video (
-	.clk_sys     ( clk_hdmi   ),
+	.clk_sys     ( clk_sys    ),
 
 	// OSD SPI interface
 	.SPI_SCK     ( SPI_SCK    ),
