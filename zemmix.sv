@@ -247,7 +247,10 @@ pll pll
 `endif	
 	.c0(clk_sys),
 	.c1(memclk),
-	.c2(clk_hdmi),
+`ifdef USE_HDMI
+		.c2(clk_hdmi),
+`endif
+
 	.locked(locked)
 );
 
