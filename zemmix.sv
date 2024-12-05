@@ -701,6 +701,8 @@ assign sum_audioL = opl_ul + scc_ul + {1'b0,psg_o,6'b0} + {TrPcm_o,TrPcm_o} + ta
 
 wire [2:0] vol_o;
 
+wire signed [15:0] i2saudio_r,i2saudio_l;
+
 StereoVolumenControl StereoVolumenControl
 (
  .volume_ctrl  (vol_o),
@@ -712,7 +714,6 @@ StereoVolumenControl StereoVolumenControl
 
 `ifdef I2S_AUDIO
 
-wire signed [15:0] i2saudio_r,i2saudio_l;
 
 wire [31:0] clk_rate =  32'd21_480_000;
 i2s i2s (
